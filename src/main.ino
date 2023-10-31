@@ -23,13 +23,19 @@
 #include <SPI.h>
 #include <WiFiNINA.h>
 
-#include "secrets.h" 
+#include "secrets.h"
+
+const int btnPin = 2;
+
 ///////please enter your sensitive data in the Secret tab/arduino_secrets.h
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
+char token[] = TOKEN;
 int keyIndex = 0;            // your network key index number (needed only for WEP)
 
 int status = WL_IDLE_STATUS;
+bool busy = false;
+
 // if you don't want to use DNS (and reduce your sketch size)
 // use the numeric IP instead of the name for the server:
 //IPAddress server(74,125,232,128);  // numeric IP for Google (no DNS)
@@ -40,7 +46,11 @@ char server[] = "10.0.0.20";    // name address for Google (using DNS)
 // that you want to connect to (port 80 is default for HTTP):
 WiFiClient client;
 
+String payload = "{ \"entity_id\": \"switch.bedroom_lights\" }";
+
 void setup() {
+  pinMode(btnPin, INPUT_PULLUP);
+
   //Initialize serial and wait for port to open:
   Serial.begin(9600);
   while (!Serial) {
@@ -71,35 +81,46 @@ void setup() {
   }
   Serial.println("Connected to WiFi");
   printWifiStatus();
-
-  Serial.println("\nStarting connection to server...");
-  // if you get a connection, report back via serial:
-  if (client.connect(server, 8123)) {
-    Serial.println("connected to server");
-    // Make a HTTP request:
-    client.println("GET /api/");
-    client.println("Host: 10.0.0.20");
-    client.println("Connection: close");
-    client.println();
-  }
 }
 
 void loop() {
-  // if there are incoming bytes available
-  // from the server, read them and print them:
-  while (client.available()) {
-    char c = client.read();
-    Serial.write(c);
+  if (!busy && digitalRead(btnPin) == LOW) {
+    busy = true;
+
+    Serial.println("\nStarting connection to server...");
+    // if you get a connection, report back via serial:
+    if (client.connect(server, 8123)) {
+      Serial.println("connected to server");
+      // Make a HTTP request:
+      client.println("POST /api/services/switch/toggle");
+      client.println("Host: 10.0.0.20");
+      client.println("Content-Type: application/json");
+      client.println(strcat("Authorization: Bearer ", token));
+      client.println("Content-Length: 40");
+      client.println("");
+      client.println(payload);
+      client.println("Connection: close");
+      client.println();
+    }
   }
 
-  // if the server's disconnected, stop the client:
-  if (!client.connected()) {
-    Serial.println();
-    Serial.println("disconnecting from server.");
-    client.stop();
+  if (busy) {
+    // if there are incoming bytes available
+    // from the server, read them and print them:
+    while (client.available()) {
+      char c = client.read();
+      Serial.write(c);
+    }
 
-    // do nothing forevermore:
-    while (true);
+    // if the server's disconnected, stop the client:
+    if (!client.connected()) {
+      Serial.println();
+      Serial.println("disconnecting from server.");
+      client.stop();
+
+      // do nothing forevermore:
+      while (true);
+    }
   }
 }
 
