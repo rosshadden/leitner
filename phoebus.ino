@@ -1,25 +1,3 @@
-/*
-  Web client
-
- This sketch connects to a website (http://www.google.com)
- using the WiFi module.
-
- This example is written for a network using WPA encryption. For
- WEP or WPA, change the WiFi.begin() call accordingly.
-
- This example is written for a network using WPA encryption. For
- WEP or WPA, change the WiFi.begin() call accordingly.
-
- Circuit:
- * Board with NINA module (Arduino MKR WiFi 1010, MKR VIDOR 4000 and Uno WiFi Rev.2)
-
- created 13 July 2010
- by dlf (Metodo2 srl)
- modified 31 May 2012
- by Tom Igoe
- */
-
-
 #include <SPI.h>
 #include <WiFiNINA.h>
 
@@ -46,7 +24,8 @@ char server[] = "10.0.0.20";    // name address for Google (using DNS)
 // that you want to connect to (port 80 is default for HTTP):
 WiFiClient client;
 
-String payload = "{ \"entity_id\": \"switch.bedroom_lights\" }";
+String payload = "{ \"entity_id\": \"input_boolean.debug\" }";
+// String payload = "{ \"entity_id\": \"switch.bedroom_lights\" }";
 
 void setup() {
   pinMode(btnPin, INPUT_PULLUP);
@@ -92,11 +71,13 @@ void loop() {
     if (client.connect(server, 8123)) {
       Serial.println("connected to server");
       // Make a HTTP request:
-      client.println("POST /api/services/switch/toggle");
+      // client.println("POST /api/services/switch/toggle");
+      client.println("POST /api/services/input_boolean/toggle");
       client.println("Host: 10.0.0.20");
       client.println("Content-Type: application/json");
       client.println(strcat("Authorization: Bearer ", token));
-      client.println("Content-Length: 40");
+      client.println("Content-Length: 38");
+      // client.println("Content-Length: 40");
       client.println("");
       client.println(payload);
       client.println("Connection: close");
@@ -109,6 +90,7 @@ void loop() {
     // from the server, read them and print them:
     while (client.available()) {
       char c = client.read();
+      Serial.println();
       Serial.write(c);
     }
 
@@ -117,6 +99,7 @@ void loop() {
       Serial.println();
       Serial.println("disconnecting from server.");
       client.stop();
+      Serial.end();
 
       // do nothing forevermore:
       while (true);
