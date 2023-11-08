@@ -75,9 +75,10 @@ void loop() {
       client.println("POST /api/services/input_boolean/toggle");
       client.println("Host: 10.0.0.20");
       client.println("Content-Type: application/json");
-      client.println(strcat("Authorization: Bearer ", token));
-      client.println("Content-Length: 38");
-      // client.println("Content-Length: 40");
+      client.print("Authorization: Bearer ");
+      client.println(token);
+      client.print("Content-Length: ");
+      client.println(payload.length());
       client.println("");
       client.println(payload);
       client.println("Connection: close");
@@ -106,7 +107,6 @@ void loop() {
     }
   }
 }
-
 
 void printWifiStatus() {
   // print the SSID of the network you're attached to:
