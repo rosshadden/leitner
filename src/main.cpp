@@ -16,7 +16,7 @@ char token[] = HA_TOKEN;
 
 int status = WL_IDLE_STATUS;
 bool busy = false;
-bool debug = true;
+bool debug = false;
 
 WiFiClient client;
 
@@ -67,7 +67,7 @@ void makeRequest(String endpoint, String payload) {
 void setup() {
 	pinMode(btnPin, INPUT_PULLUP);
 	pinMode(ledPin, OUTPUT);
-	IrReceiver.begin(irPin, ENABLE_LED_FEEDBACK);
+	IrReceiver.begin(irPin);
 
 	Serial.begin(9600);
 
@@ -84,14 +84,31 @@ void loop() {
 	if (!busy && IrReceiver.decode()) {
 		busy = true;
 
-		Serial.println(IrReceiver.decodedIRData.decodedRawData, HEX);
-		IrReceiver.printIRResultShort(&Serial);
-		IrReceiver.printIRSendUsage(&Serial);
-		IrReceiver.resume();
+		if (debug) {
+			Serial.println(IrReceiver.decodedIRData.decodedRawData, HEX);
+			IrReceiver.printIRResultShort(&Serial);
+			IrReceiver.printIRSendUsage(&Serial);
+		}
 
 		switch (IrReceiver.decodedIRData.decodedRawData) {
+			// all
 			case 0xBA45FF00:
 				payload = "{ \"entity_id\": \"switch.bedroom_lights\" }";
+				break;
+
+			// bedroom lamps
+			case 0xF30CFF00:
+				payload = "{ \"entity_id\": \"switch.bedroom_lamps\" }";
+				break;
+
+			// salt lamp
+			case 0xE718FF00:
+				payload = "{ \"entity_id\": \"switch.tp_link_power_strip_9993_salt_lamp\" }";
+				break;
+
+			// pineapple lamps
+			case 0xA15EFF00:
+				payload = "{ \"entity_id\": \"switch.bedroom_pineapple_lamps\" }";
 				break;
 
 			// DEBUG
@@ -105,6 +122,8 @@ void loop() {
 			makeRequest(endpoint, payload);
 			delay(10);
 		}
+
+		IrReceiver.resume();
 	} else if (busy) {
 		while (client.available()) {
 			char c = client.read();
@@ -113,7 +132,6 @@ void loop() {
 		Serial.println();
 
 		if (!client.connected()) {
-			Serial.println("disconnecting server...\n");
 			client.stop();
 			Serial.end();
 		}
