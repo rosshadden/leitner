@@ -1,9 +1,11 @@
 #include "Arduino.h"
 #include "WiFiNINA.h"
+#include "IRremote.hpp"
 
 #include "secrets.h"
 
 const int btnPin = 2;
+const int irPin = 7;
 const int ledPin = LED_BUILTIN;
 
 char ssid[] = WIFI_SSID;
@@ -14,6 +16,7 @@ char token[] = HA_TOKEN;
 
 int status = WL_IDLE_STATUS;
 bool busy = false;
+bool debug = true;
 
 WiFiClient client;
 
@@ -56,12 +59,15 @@ void makeRequest() {
 void setup() {
 	pinMode(btnPin, INPUT_PULLUP);
 	pinMode(ledPin, OUTPUT);
+	IrReceiver.begin(irPin, ENABLE_LED_FEEDBACK);
 
 	Serial.begin(9600);
 
 	// TODO: temp @debug
-	while (!Serial) { ; }
+	if (debug) while (!Serial) { ; }
 	Serial.println("starting...");
+
+	if (debug) return;
 
 	while (status != WL_CONNECTED) {
 		Serial.println("connecting wifi...");
@@ -75,6 +81,17 @@ void setup() {
 }
 
 void loop() {
+	if (debug) {
+		if (IrReceiver.decode()) {
+			Serial.println("received");
+			// Serial.println(IrReceiver.decodedIRData.decodedRawData, HEX);
+			IrReceiver.printIRResultShort(&Serial);
+			// IrReceiver.printIRSendUsage(&Serial);
+			IrReceiver.resume();
+		}
+		return;
+	}
+
 	if (!busy && digitalRead(btnPin) == LOW) {
 		busy = true;
 		makeRequest();
