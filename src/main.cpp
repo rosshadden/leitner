@@ -4,8 +4,8 @@
 
 #include "secrets.h"
 
-const int btnPin = 2;
-const int irPin = 7;
+const int btnPin = 3;
+const int irPin = 2;
 const int ledPin = LED_BUILTIN;
 
 char ssid[] = WIFI_SSID;
@@ -20,10 +20,7 @@ bool debug = true;
 
 WiFiClient client;
 
-String payload = "{ \"entity_id\": \"input_boolean.debug\" }";
-// String payload = "{ \"entity_id\": \"switch.bedroom_lights\" }";
-
-void printWifiStatus() {
+void dumpWifi() {
 	Serial.print("\nSSID: ");
 	Serial.println(WiFi.SSID());
 	Serial.print("IP Address: ");
@@ -33,15 +30,26 @@ void printWifiStatus() {
 	Serial.println(" dBm\n");
 }
 
-void makeRequest() {
+void connectWifi() {
+	while (status != WL_CONNECTED) {
+		Serial.println("connecting wifi...");
+		status = WiFi.begin(ssid, pass);
+		delay(1000);
+	}
+
+	// TODO: blink while connecting
+	digitalWrite(ledPin, HIGH);
+	dumpWifi();
+}
+
+void makeRequest(String endpoint, String payload) {
 	Serial.println("connecting server...");
 	if (client.connect(host, port)) {
 		Serial.print("connected: ");
 		Serial.println(host);
 		Serial.println();
 
-		// client.println("POST /api/services/switch/toggle");
-		client.println("POST /api/services/input_boolean/toggle");
+		client.println("POST /api/services/" + endpoint + "/toggle");
 		client.print("Host: ");
 		client.println(host);
 		client.println("Content-Type: application/json");
@@ -63,40 +71,41 @@ void setup() {
 
 	Serial.begin(9600);
 
-	// TODO: temp @debug
 	if (debug) while (!Serial) { ; }
 	Serial.println("starting...");
 
-	if (debug) return;
-
-	while (status != WL_CONNECTED) {
-		Serial.println("connecting wifi...");
-		status = WiFi.begin(ssid, pass);
-		delay(1000);
-	}
-
-	// TODO: blink while connecting
-	digitalWrite(ledPin, HIGH);
-	printWifiStatus();
+	connectWifi();
 }
 
 void loop() {
-	if (debug) {
-		if (IrReceiver.decode()) {
-			Serial.println("received");
-			// Serial.println(IrReceiver.decodedIRData.decodedRawData, HEX);
-			IrReceiver.printIRResultShort(&Serial);
-			// IrReceiver.printIRSendUsage(&Serial);
-			IrReceiver.resume();
-		}
-		return;
-	}
+	String endpoint = "switch";
+	String payload;
 
-	if (!busy && digitalRead(btnPin) == LOW) {
+	if (!busy && IrReceiver.decode()) {
 		busy = true;
-		makeRequest();
-		delay(10);
-	} else if (busy && digitalRead(btnPin) == HIGH) {
+
+		Serial.println(IrReceiver.decodedIRData.decodedRawData, HEX);
+		IrReceiver.printIRResultShort(&Serial);
+		IrReceiver.printIRSendUsage(&Serial);
+		IrReceiver.resume();
+
+		switch (IrReceiver.decodedIRData.decodedRawData) {
+			case 0xBA45FF00:
+				payload = "{ \"entity_id\": \"switch.bedroom_lights\" }";
+				break;
+
+			// DEBUG
+			case 0xB847FF00:
+				endpoint = "input_boolean";
+				payload = "{ \"entity_id\": \"input_boolean.debug\" }";
+				break;
+		}
+
+		if (payload.length() > 0) {
+			makeRequest(endpoint, payload);
+			delay(10);
+		}
+	} else if (busy) {
 		while (client.available()) {
 			char c = client.read();
 			Serial.write(c);
